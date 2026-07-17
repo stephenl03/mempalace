@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "mempalace": {
+      "type": "http",
+      "url": "https://mempalace.k8s.lazy.sh/mcp",
+      "bearer_token_env_var": "MEMPALACE_MCP_TOKEN",
+      "startup_timeout_sec": 20,
+      "tool_timeout_sec": 120,
+      "default_tools_approval_mode": "writes"
+    }
+  }
+}

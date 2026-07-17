@@ -1,0 +1,4 @@
+interface:
+  display_name: "MemPalace Remote Recall"
+  short_description: "Recall prior work from shared memory"
+  default_prompt: "Search remote MemPalace before answering about prior work."

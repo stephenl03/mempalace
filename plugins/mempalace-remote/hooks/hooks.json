@@ -1,0 +1,42 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/mempalace_remote.py\" session-start",
+            "timeout": 5,
+            "statusMessage": "Initializing remote MemPalace session"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/mempalace_remote.py\" stop",
+            "timeout": 5,
+            "statusMessage": "Checkpointing to remote MemPalace"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/mempalace_remote.py\" precompact",
+            "timeout": 30,
+            "statusMessage": "Saving remote memory before compaction"
+          }
+        ]
+      }
+    ]
+  }
+}

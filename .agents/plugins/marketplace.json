@@ -15,6 +15,18 @@
         "authentication": "NONE"
       },
       "category": "Coding"
+    },
+    {
+      "name": "mempalace-remote",
+      "source": {
+        "source": "local",
+        "path": "./plugins/mempalace-remote"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
     }
   ]
 }

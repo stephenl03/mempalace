@@ -1,0 +1,4 @@
+interface:
+  display_name: "MemPalace Remote"
+  short_description: "Use the shared remote memory palace"
+  default_prompt: "Use remote MemPalace to search or save shared memory."

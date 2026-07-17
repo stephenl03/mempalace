@@ -1,0 +1,42 @@
+{
+  "name": "mempalace-remote",
+  "version": "3.6.0-remote.1",
+  "description": "Shared remote MemPalace MCP access with Codex lifecycle checkpoint hooks.",
+  "author": {
+    "name": "Stephen Lewis",
+    "url": "https://github.com/stephenl03"
+  },
+  "homepage": "https://github.com/stephenl03/mempalace",
+  "repository": "https://github.com/stephenl03/mempalace",
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "mcp",
+    "remote",
+    "qdrant",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "MemPalace Remote",
+    "shortDescription": "Shared AI memory with automatic remote checkpoints",
+    "longDescription": "Connect Codex to a shared remote MemPalace MCP server and checkpoint conversation transcripts during Stop and PreCompact lifecycle events.",
+    "developerName": "Stephen Lewis",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/stephenl03/mempalace",
+    "privacyPolicyURL": "https://github.com/MemPalace/mempalace",
+    "termsOfServiceURL": "https://github.com/MemPalace/mempalace",
+    "defaultPrompt": [
+      "Search shared memory for prior decisions",
+      "Show the remote palace status",
+      "Save this decision to shared memory"
+    ],
+    "brandColor": "#7C3AED"
+  },
+  "mcpServers": "./.mcp.json"
+}
