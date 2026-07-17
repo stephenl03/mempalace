@@ -12,10 +12,19 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ROOT = REPO_ROOT / "plugins" / "mempalace-remote"
 HOOK_SCRIPT = PLUGIN_ROOT / "hooks" / "mempalace_remote.py"
+CONFIG_SCRIPT = PLUGIN_ROOT / "scripts" / "configure_static_token.py"
 
 
 def _load_hook_module():
     spec = importlib.util.spec_from_file_location("mempalace_remote_hook", HOOK_SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_config_module():
+    spec = importlib.util.spec_from_file_location("mempalace_remote_config", CONFIG_SCRIPT)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -62,6 +71,7 @@ def hook(monkeypatch, tmp_path):
     module = _load_hook_module()
     transcript_root = tmp_path / "sessions"
     monkeypatch.setenv("PLUGIN_DATA", str(tmp_path / "plugin-data"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
     monkeypatch.setenv("MEMPAL_REMOTE_TRANSCRIPT_ROOTS", str(transcript_root))
     monkeypatch.setenv("MEMPALACE_MCP_TOKEN", "test-token")
     monkeypatch.delenv("MEMPAL_DISABLE_HOOK", raising=False)
@@ -73,15 +83,9 @@ def hook(monkeypatch, tmp_path):
 def test_remote_plugin_manifest_and_marketplace_contract():
     manifest = json.loads((PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text())
     assert manifest["name"] == "mempalace-remote"
-    assert manifest["mcpServers"] == "./.mcp.json"
+    assert "mcpServers" not in manifest
     assert "hooks" not in manifest
-
-    mcp = json.loads((PLUGIN_ROOT / ".mcp.json").read_text())
-    server = mcp["mcpServers"]["mempalace"]
-    assert server["type"] == "http"
-    assert server["url"] == "https://mempalace.k8s.lazy.sh/mcp"
-    assert server["bearer_token_env_var"] == "MEMPALACE_MCP_TOKEN"
-    assert "Authorization" not in json.dumps(mcp)
+    assert not (PLUGIN_ROOT / ".mcp.json").exists()
 
     marketplace = json.loads((REPO_ROOT / ".agents" / "plugins" / "marketplace.json").read_text())
     remote = next(
@@ -201,7 +205,39 @@ def test_transcript_path_must_be_inside_codex_roots(hook, tmp_path):
         )
 
 
-def test_mcp_call_uses_bearer_auth_without_static_secret(hook, monkeypatch):
+def test_static_config_helper_preserves_existing_config_and_replaces_credential(tmp_path):
+    config_module = _load_config_module()
+    config_path = tmp_path / "config.toml"
+    config_path.write_text('model = "gpt-5"\n', encoding="utf-8")
+
+    config_module.update_config(config_path, "first-test-token")
+    config_module.update_config(config_path, "second-test-token")
+
+    content = config_path.read_text(encoding="utf-8")
+    assert 'model = "gpt-5"' in content
+    assert content.count(config_module.BEGIN_MARKER) == 1
+    assert "first-test-token" not in content
+    assert "Bearer second-test-token" in content
+    assert config_path.stat().st_mode & 0o777 == 0o600
+
+
+def test_hook_prefers_static_codex_config_over_environment(hook, monkeypatch, tmp_path):
+    config_module = _load_config_module()
+    config_path = tmp_path / "codex-home" / "config.toml"
+    config_module.update_config(
+        config_path,
+        "static-test-token",
+        "https://memory.example.test/mcp",
+    )
+    monkeypatch.setenv("MEMPALACE_MCP_TOKEN", "environment-test-token")
+
+    url, token = hook._mcp_connection_settings()
+
+    assert url == "https://memory.example.test/mcp"
+    assert token == "static-test-token"
+
+
+def test_mcp_call_uses_environment_fallback_without_static_config(hook, monkeypatch):
     captured = {}
 
     class FakeResponse:

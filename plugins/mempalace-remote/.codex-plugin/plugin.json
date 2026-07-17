@@ -1,6 +1,6 @@
 {
   "name": "mempalace-remote",
-  "version": "3.6.0-remote.1",
+  "version": "3.6.0-remote.1+codex.20260717174323",
   "description": "Shared remote MemPalace MCP access with Codex lifecycle checkpoint hooks.",
   "author": {
     "name": "Stephen Lewis",
@@ -37,6 +37,5 @@
       "Save this decision to shared memory"
     ],
     "brandColor": "#7C3AED"
-  },
-  "mcpServers": "./.mcp.json"
+  }
 }

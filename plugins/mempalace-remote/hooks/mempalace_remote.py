@@ -19,8 +19,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterator, Optional
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.9/3.10 compatibility
+    try:
+        import tomli as tomllib
+    except ModuleNotFoundError:  # pragma: no cover - diagnosed when config auth is used
+        tomllib = None
+
 
 DEFAULT_MCP_URL = "https://mempalace.k8s.lazy.sh/mcp"
+DEFAULT_MCP_SERVER_NAME = "mempalace"
 DEFAULT_SAVE_INTERVAL = 15
 DEFAULT_MAX_DRAWER_CHARS = 24_000
 DEFAULT_TIMEOUT_SECONDS = 20.0
@@ -87,6 +96,61 @@ def _positive_int(name: str, default: int, minimum: int, maximum: int) -> int:
     if not minimum <= value <= maximum:
         return default
     return value
+
+
+def _codex_config_path() -> Path:
+    configured = os.environ.get("MEMPAL_REMOTE_CONFIG_FILE", "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    codex_home = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")).expanduser()
+    return codex_home / "config.toml"
+
+
+def _config_mcp_settings() -> tuple[Optional[str], Optional[str]]:
+    """Return the URL and bearer token from Codex's static MCP configuration."""
+    path = _codex_config_path()
+    if not path.is_file():
+        return None, None
+    if tomllib is None:
+        raise RemoteHookError("reading static MCP auth requires Python 3.11+ or the tomli package")
+    try:
+        with path.open("rb") as handle:
+            config = tomllib.load(handle)
+    except (OSError, ValueError) as exc:
+        raise RemoteHookError(f"could not read Codex MCP config: {type(exc).__name__}") from exc
+    server = config.get("mcp_servers", {}).get(DEFAULT_MCP_SERVER_NAME, {})
+    if not isinstance(server, dict):
+        return None, None
+    configured_url = server.get("url")
+    url = configured_url.strip() if isinstance(configured_url, str) else None
+    headers = server.get("http_headers", {})
+    if not isinstance(headers, dict):
+        return url, None
+    authorization = next(
+        (
+            value.strip()
+            for name, value in headers.items()
+            if isinstance(name, str) and name.lower() == "authorization" and isinstance(value, str)
+        ),
+        "",
+    )
+    if not authorization:
+        return url, None
+    scheme, separator, token = authorization.partition(" ")
+    if not separator or scheme.lower() != "bearer" or not token.strip():
+        raise RemoteHookError("Codex MCP Authorization header must contain a Bearer token")
+    return url, token.strip()
+
+
+def _mcp_connection_settings() -> tuple[str, str]:
+    config_url, config_token = _config_mcp_settings()
+    url = os.environ.get("MEMPALACE_MCP_URL", "").strip() or config_url or DEFAULT_MCP_URL
+    token = config_token or os.environ.get("MEMPALACE_MCP_TOKEN", "").strip()
+    if not token:
+        raise RemoteHookError(
+            "MemPalace token is missing from Codex config and MEMPALACE_MCP_TOKEN is not set"
+        )
+    return url, token
 
 
 def _save_interval() -> int:
@@ -262,10 +326,7 @@ def _decode_mcp_response(raw: bytes, content_type: str) -> dict:
 
 
 def _mcp_call(tool_name: str, arguments: dict) -> dict:
-    token = os.environ.get("MEMPALACE_MCP_TOKEN", "").strip()
-    if not token:
-        raise RemoteHookError("MEMPALACE_MCP_TOKEN is not set")
-    url = os.environ.get("MEMPALACE_MCP_URL", DEFAULT_MCP_URL).strip()
+    url, token = _mcp_connection_settings()
     parsed_url = urllib.parse.urlparse(url)
     allow_insecure = os.environ.get("MEMPAL_REMOTE_ALLOW_INSECURE", "").lower() in TRUTHY
     if parsed_url.scheme != "https" and not allow_insecure:
